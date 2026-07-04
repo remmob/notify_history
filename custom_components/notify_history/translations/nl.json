@@ -1,0 +1,30 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Notificatiehistorie",
+        "description": "Legt alle notificaties (mobiel en persistent) vast in een doorzoekbaar historiepaneel. Verdere instellingen zijn niet nodig; de bewaartermijn is later aan te passen via de knop Configureren."
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "Al geconfigureerd. Slechts één instantie is mogelijk."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Opties notificatiehistorie",
+        "data": {
+          "max_age_days": "Notificaties bewaren gedurende (dagen)",
+          "max_entries": "Maximaal aantal notificaties",
+          "ignored_services": "Te negeren notify-services"
+        },
+        "data_description": {
+          "max_age_days": "Notificaties ouder dan dit worden verwijderd.",
+          "max_entries": "Bij overschrijding worden de oudste notificaties eerst verwijderd.",
+          "ignored_services": "Aanroepen van deze notify-services worden niet vastgelegd."
+        }
+      }
+    }
+  }
+}

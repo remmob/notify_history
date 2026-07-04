@@ -1,0 +1,30 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Notification History",
+        "description": "Record all notifications (mobile and persistent) in a searchable history panel. No further setup is required; retention can be adjusted later via the Configure button."
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "Already configured. Only a single instance is possible."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Notification History options",
+        "data": {
+          "max_age_days": "Keep notifications for (days)",
+          "max_entries": "Maximum number of notifications",
+          "ignored_services": "Notify services to ignore"
+        },
+        "data_description": {
+          "max_age_days": "Notifications older than this are removed.",
+          "max_entries": "When exceeded, the oldest notifications are removed first.",
+          "ignored_services": "Calls to these notify services will not be recorded."
+        }
+      }
+    }
+  }
+}

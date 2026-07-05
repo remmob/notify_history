@@ -19,6 +19,19 @@ from .const import (
 )
 
 
+def _cache_tag() -> str:
+    """Return a cache-busting tag based on the panel JS file mtime.
+
+    This makes browsers pick up JS changes on every integration reload
+    without having to bump VERSION manually during development.
+    """
+    js_path = Path(__file__).parent / "frontend" / "notify-history-panel.js"
+    try:
+        return str(int(js_path.stat().st_mtime))
+    except OSError:
+        return VERSION
+
+
 async def async_register_panel(hass: HomeAssistant) -> None:
     """Serve the frontend files and add the sidebar panel."""
     # Static paths cannot be unregistered, so register them only once.
@@ -34,6 +47,7 @@ async def async_register_panel(hass: HomeAssistant) -> None:
         )
         hass.data[DATA_STATIC_REGISTERED] = True
 
+    cache_tag = await hass.async_add_executor_job(_cache_tag)
     if PANEL_URL_PATH not in hass.data.get("frontend_panels", {}):
         frontend.async_register_built_in_panel(
             hass,
@@ -46,7 +60,7 @@ async def async_register_panel(hass: HomeAssistant) -> None:
                     "name": "notify-history-panel",
                     "embed_iframe": False,
                     "trust_external": False,
-                    "module_url": f"{PANEL_JS}?v={VERSION}",
+                    "module_url": f"{PANEL_JS}?v={cache_tag}",
                 }
             },
             require_admin=False,

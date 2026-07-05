@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 DOMAIN = "notify_history"
-VERSION = "1.0.1"  # keep in sync with manifest.json; used for JS cache-busting
+VERSION = "1.0.5"  # keep in sync with manifest.json
 
 STORAGE_KEY = f"{DOMAIN}.history"
 STORAGE_VERSION = 1

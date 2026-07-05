@@ -4,21 +4,47 @@
    XSS-safe; a minimal markdown subset (bold/italic/links) is built from
    DOM nodes per segment. */
 
-const STRINGS = {
-  title: "Notification History",
-  search: "Search...",
-  allRecipients: "All recipients",
-  allDates: "Any time",
-  today: "Today",
-  last7: "Last 7 days",
-  clear: "Clear history",
-  clearConfirm: "Delete the entire notification history?",
-  empty: "No notifications recorded yet.",
-  noMatches: "No notifications match the current filters.",
-  loadError: "Could not load notification history:",
-  details: "Details",
-  sentBy: "sent by",
+const TRANSLATIONS = {
+  en: {
+    title: "Notification History",
+    search: "Search...",
+    allRecipients: "All recipients",
+    allDates: "Any time",
+    today: "Today",
+    last7: "Last 7 days",
+    clear: "Clear history",
+    clearConfirm: "Delete the entire notification history?",
+    empty: "No notifications recorded yet.",
+    noMatches: "No notifications match the current filters.",
+    loadError: "Could not load notification history:",
+    details: "Details",
+    sentBy: "sent by",
+  },
+  nl: {
+    title: "Notificatiehistorie",
+    search: "Zoeken...",
+    allRecipients: "Alle ontvangers",
+    allDates: "Alle datums",
+    today: "Vandaag",
+    last7: "Afgelopen 7 dagen",
+    clear: "Historie wissen",
+    clearConfirm: "De volledige notificatiehistorie verwijderen?",
+    empty: "Nog geen notificaties vastgelegd.",
+    noMatches: "Geen notificaties voldoen aan de huidige filters.",
+    loadError: "Kan notificatiehistorie niet laden:",
+    details: "Details",
+    sentBy: "verzonden door",
+  },
 };
+
+/* Pick the string table matching the user's profile language. */
+function getStrings(hass) {
+  const lang =
+    (hass && hass.locale && hass.locale.language) ||
+    (hass && hass.language) ||
+    "en";
+  return lang.startsWith("nl") ? TRANSLATIONS.nl : TRANSLATIONS.en;
+}
 
 const LINK_RE = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/;
 const BOLD_RE = /\*\*([^*]+)\*\*/;
@@ -34,15 +60,39 @@ class NotifyHistoryPanel extends HTMLElement {
     this._dateFilter = "";
     this._unsub = null;
     this._initialized = false;
+    this._narrow = false;
+    this._strings = TRANSLATIONS.en;
   }
 
   /* Called by Home Assistant on every state change. */
   set hass(hass) {
     this._hass = hass;
+    this._strings = getStrings(hass);
     if (!this._initialized) {
       this._initialized = true;
       this._init();
     }
+    this._updateMenuButton();
+  }
+
+  /* Set by Home Assistant when the viewport is narrow (mobile). */
+  set narrow(value) {
+    this._narrow = value;
+    this._updateMenuButton();
+  }
+
+  get narrow() {
+    return this._narrow;
+  }
+
+  /* Show the sidebar toggle only on narrow (mobile) screens,
+     matching regular dashboard behaviour. */
+  _updateMenuButton() {
+    const btn = this.shadowRoot && this.shadowRoot.getElementById("menu");
+    if (!btn) {
+      return;
+    }
+    btn.hidden = !this._narrow;
   }
 
   disconnectedCallback() {
@@ -93,12 +143,38 @@ class NotifyHistoryPanel extends HTMLElement {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          background: var(--primary-background-color);
-          color: var(--primary-text-color);
-          padding: 12px 16px;
+          /* Keep the title clear of the phone camera / status bar area. */
+          height: calc(56px + env(safe-area-inset-top, 0px));
+          box-sizing: border-box;
+          padding: env(safe-area-inset-top, 0px) 16px 0;
+          background: var(--app-header-background-color, var(--primary-background-color));
+          color: var(--app-header-text-color, var(--primary-text-color));
+          border-bottom: 1px solid var(--app-header-border-bottom, transparent);
           font-size: 20px;
           font-weight: 400;
         }
+        .header-left {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          min-width: 0;
+        }
+        #menu {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          background: transparent;
+          border: none;
+          color: inherit;
+          padding: 8px;
+          margin-left: -8px;
+          border-radius: 50%;
+          cursor: pointer;
+        }
+        /* Explicit display would otherwise override the hidden attribute. */
+        #menu[hidden] { display: none; }
+        #menu:hover { background: rgba(127, 127, 127, 0.2); }
+        #menu svg { width: 24px; height: 24px; fill: currentColor; }
         header button {
           background: var(--ha-card-background, var(--card-background-color));
           color: var(--primary-text-color);
@@ -116,7 +192,7 @@ class NotifyHistoryPanel extends HTMLElement {
           flex-wrap: wrap;
           padding: 12px 16px;
           position: sticky;
-          top: 52px;
+          top: calc(56px + env(safe-area-inset-top, 0px));
           z-index: 1;
           background: var(--primary-background-color);
         }
@@ -180,7 +256,14 @@ class NotifyHistoryPanel extends HTMLElement {
         .error { color: var(--error-color, #db4437); padding: 16px; }
       </style>
       <header>
-        <span></span>
+        <div class="header-left">
+          <button id="menu" aria-label="Menu" hidden>
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M3,6H21V8H3V6M3,11H21V13H3V11M3,16H21V18H3V16Z"/>
+            </svg>
+          </button>
+          <span class="header-title"></span>
+        </div>
         <button id="clear" hidden></button>
       </header>
       <div class="toolbar">
@@ -195,9 +278,15 @@ class NotifyHistoryPanel extends HTMLElement {
       <div id="list"></div>`;
 
     const root = this.shadowRoot;
-    root.querySelector("header span").textContent = STRINGS.title;
+    root.querySelector(".header-title").textContent = this._strings.title;
+    root.getElementById("menu").addEventListener("click", () => {
+      this.dispatchEvent(
+        new Event("hass-toggle-menu", { bubbles: true, composed: true })
+      );
+    });
+    this._updateMenuButton();
     const search = root.getElementById("search");
-    search.placeholder = STRINGS.search;
+    search.placeholder = this._strings.search;
     search.addEventListener("input", (e) => {
       this._query = e.target.value;
       this._renderList();
@@ -207,7 +296,11 @@ class NotifyHistoryPanel extends HTMLElement {
       this._renderList();
     });
     const dateSelect = root.getElementById("date");
-    const dateLabels = [STRINGS.allDates, STRINGS.today, STRINGS.last7];
+    const dateLabels = [
+      this._strings.allDates,
+      this._strings.today,
+      this._strings.last7,
+    ];
     [...dateSelect.options].forEach((opt, i) => (opt.textContent = dateLabels[i]));
     dateSelect.addEventListener("change", (e) => {
       this._dateFilter = e.target.value;
@@ -215,7 +308,7 @@ class NotifyHistoryPanel extends HTMLElement {
     });
 
     const clearBtn = root.getElementById("clear");
-    clearBtn.textContent = STRINGS.clear;
+    clearBtn.textContent = this._strings.clear;
     if (this._hass.user && this._hass.user.is_admin) {
       clearBtn.hidden = false;
       clearBtn.addEventListener("click", () => this._clear());
@@ -223,7 +316,7 @@ class NotifyHistoryPanel extends HTMLElement {
   }
 
   async _clear() {
-    if (!window.confirm(STRINGS.clearConfirm)) {
+    if (!window.confirm(this._strings.clearConfirm)) {
       return;
     }
     try {
@@ -243,7 +336,7 @@ class NotifyHistoryPanel extends HTMLElement {
     list.textContent = "";
     const div = document.createElement("div");
     div.className = "error";
-    div.textContent = `${STRINGS.loadError} ${err && err.message ? err.message : err}`;
+    div.textContent = `${this._strings.loadError} ${err && err.message ? err.message : err}`;
     list.appendChild(div);
   }
 
@@ -254,7 +347,7 @@ class NotifyHistoryPanel extends HTMLElement {
     select.textContent = "";
     const all = document.createElement("option");
     all.value = "";
-    all.textContent = STRINGS.allRecipients;
+    all.textContent = this._strings.allRecipients;
     select.appendChild(all);
     for (const recipient of recipients) {
       const opt = document.createElement("option");
@@ -306,7 +399,9 @@ class NotifyHistoryPanel extends HTMLElement {
     if (!records.length) {
       const div = document.createElement("div");
       div.className = "empty";
-      div.textContent = this._records.length ? STRINGS.noMatches : STRINGS.empty;
+      div.textContent = this._records.length
+        ? this._strings.noMatches
+        : this._strings.empty;
       list.appendChild(div);
       return;
     }
@@ -369,7 +464,7 @@ class NotifyHistoryPanel extends HTMLElement {
     if (record.data && Object.keys(record.data).length) {
       const details = document.createElement("details");
       const summary = document.createElement("summary");
-      summary.textContent = STRINGS.details;
+      summary.textContent = this._strings.details;
       const pre = document.createElement("pre");
       pre.textContent = JSON.stringify(record.data, null, 2);
       details.appendChild(summary);
